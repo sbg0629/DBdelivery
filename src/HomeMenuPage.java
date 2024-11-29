@@ -23,7 +23,7 @@ public class HomeMenuPage {
         infoPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
         // 관리자 정보 가져오기
-        try (Connection conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/your_database", "your_user", "your_password");
+        try (Connection conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/내 데이터베이스", "데이터베이스 아이디 ", "비밀번호");
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery("SELECT * FROM admin WHERE id = 1")) { // 관리자 ID 1번
 

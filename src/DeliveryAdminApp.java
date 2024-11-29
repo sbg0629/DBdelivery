@@ -91,7 +91,7 @@ public class DeliveryAdminApp {
         itemListPanel.setBackground(new Color(240, 240, 255));
 
         // 데이터베이스에서 데이터 가져오기
-        try (Connection conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/your_database", "your_user", "your_password");
+        try (Connection conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/내 데이터베이스", "데이터베이스 아이디 ", "비밀번호");
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(query)) {
 

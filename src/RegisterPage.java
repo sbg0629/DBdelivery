@@ -64,7 +64,7 @@ public class RegisterPage {
 
     private boolean registerUser(String userType, String username, String password) {
         String tableName = "관리자".equals(userType) ? "admin_users" : "customer_users";
-        try (Connection conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/your_database", "your_user", "your_password");
+        try (Connection conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/내 데이터베이스", "데이터베이스 아이디 ", "비밀번호");
              PreparedStatement stmt = conn.prepareStatement("INSERT INTO " + tableName + " (username, password) VALUES (?, ?)")) {
 
             stmt.setString(1, username);
