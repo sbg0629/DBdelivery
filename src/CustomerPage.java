@@ -235,14 +235,14 @@ public class CustomerPage {
 
     private void saveOrderToDatabase(String address, List<BasketItem> basketItems) {
         String orderInsertQuery = "INSERT INTO 주문 (주문고유ID, 사용자고유ID, 상점고유ID, 상태, 주문시간, 배달예상시간) VALUES (?, ?, ?, ?, ?, ?)";
-        String orderDetailInsertQuery = "INSERT INTO order_details (order_id, menu_name, quantity, price) VALUES (?, ?, ?, ?)";
 
-        String orderId = generateOrderId(); // 주문 ID 생성
-        String userId = "USER001"; // 테스트용 사용자 ID (사용자 입력 필요)
-        String storeId = "1"; // 테스트용 상점 ID (고정 상점 사용)
-        String status = "주문 완료"; // 초기 상태
+        // 주문 ID 생성
+        String orderId = generateOrderId();
+        String userId = "1"; // 로그인한 사용자의 사용자고유ID로 대체 필요
+        String storeId = "1"; // 테스트용 상점 ID
+        String status = "주문 완료";
         Timestamp orderTime = new Timestamp(System.currentTimeMillis());
-        Timestamp estimatedDeliveryTime = new Timestamp(System.currentTimeMillis() + 3600 * 1000); // 1시간 후 배달 예상
+        Timestamp estimatedDeliveryTime = new Timestamp(System.currentTimeMillis() + 3600 * 1000); // 1시간 후 예상
 
         try (Connection connection = DatabaseConnection.getConnection()) {
             // 주문 데이터 삽입
@@ -256,20 +256,7 @@ public class CustomerPage {
                 orderStatement.executeUpdate();
             }
 
-            // 주문 상세 데이터 삽입
-            try (PreparedStatement orderDetailStatement = connection.prepareStatement(orderDetailInsertQuery)) {
-                for (BasketItem basketItem : basketItems) {
-                    orderDetailStatement.setString(1, orderId); // 주문 ID 연결
-                    orderDetailStatement.setString(2, basketItem.getMenuItem().getName());
-                    orderDetailStatement.setInt(3, basketItem.getQuantity());
-                    orderDetailStatement.setInt(4, basketItem.getMenuItem().getPrice());
-                    orderDetailStatement.addBatch();
-                }
-                orderDetailStatement.executeBatch();
-            }
-
             JOptionPane.showMessageDialog(null, "주문이 성공적으로 저장되었습니다!");
-
         } catch (SQLException e) {
             e.printStackTrace();
             JOptionPane.showMessageDialog(null, "주문 저장 중 오류가 발생했습니다.", "주문 실패", JOptionPane.ERROR_MESSAGE);
