@@ -101,38 +101,6 @@ public class CustomerPage {
         }
     }
 
-    // MenuItemPanel 클래스
-    static class MenuItemPanel extends JPanel {
-        public MenuItemPanel(MenuItem menuItem) {
-            setLayout(new BorderLayout());
-            setBackground(Color.WHITE);
-            setBorder(BorderFactory.createLineBorder(Color.GRAY, 1));
-            setPreferredSize(new Dimension(200, 150));
-
-            // 메뉴 이름
-            JLabel nameLabel = new JLabel(menuItem.getName());
-            nameLabel.setFont(new Font("맑은 고딕", Font.BOLD, 16));
-            nameLabel.setHorizontalAlignment(SwingConstants.CENTER);
-
-            // 설명과 가격
-            JLabel descLabel = new JLabel("<html><p style='text-align:center;'>" + menuItem.getDescription() + "</p></html>");
-            descLabel.setHorizontalAlignment(SwingConstants.CENTER);
-
-            JLabel priceLabel = new JLabel(menuItem.getPrice() + "원");
-            priceLabel.setHorizontalAlignment(SwingConstants.CENTER);
-
-            // "장바구니에 담기" 버튼
-            JButton addToCartButton = new JButton("장바구니에 담기");
-            addToCartButton.addActionListener(e -> Basket.getInstance().addItem(menuItem));
-
-            // 구성 요소 추가
-            add(nameLabel, BorderLayout.NORTH);
-            add(descLabel, BorderLayout.CENTER);
-            add(priceLabel, BorderLayout.SOUTH);
-            add(addToCartButton, BorderLayout.PAGE_END);
-        }
-    }
-
     // Database 연결 유틸리티 클래스
     static class DatabaseConnection {
         private static final String DB_URL = "jdbc:oracle:thin:@localhost:1521:xe";
@@ -177,7 +145,6 @@ public class CustomerPage {
             menuPanel.add(new MenuItemPanel(item));
         }
 
-        // 프레임에 추가
         customerFrame.add(topPanel, BorderLayout.NORTH);
         customerFrame.add(menuPanel, BorderLayout.CENTER);
 
@@ -190,6 +157,7 @@ public class CustomerPage {
         callButton.addActionListener(e -> JOptionPane.showMessageDialog(customerFrame, "가게 전화 연결: 가게 망했습니다"));
     }
 
+    // 장바구니 보기 및 주문하기
     private void showCart(JFrame parentFrame) {
         JFrame cartFrame = new JFrame("장바구니");
         cartFrame.setSize(400, 600);
@@ -243,15 +211,63 @@ public class CustomerPage {
         totalPriceLabel.setHorizontalAlignment(SwingConstants.CENTER);
         totalPriceLabel.setFont(new Font("맑은 고딕", Font.BOLD, 16));
 
-        cartFrame.add(totalPriceLabel, BorderLayout.SOUTH);
+        JButton orderButton = new JButton("주문하기");
+        orderButton.addActionListener(e -> {
+            String address = JOptionPane.showInputDialog(cartFrame, "배송 주소를 입력하세요:", "배송 주소 입력", JOptionPane.PLAIN_MESSAGE);
+
+            if (address != null && !address.trim().isEmpty()) {
+                saveOrderToDatabase(address, basketItems);
+                JOptionPane.showMessageDialog(cartFrame, "주문이 완료되었습니다!\n배송 주소: " + address);
+                Basket.getInstance().getItems().clear(); // 장바구니 초기화
+                cartFrame.dispose();
+            } else {
+                JOptionPane.showMessageDialog(cartFrame, "주소를 입력해주세요!", "주소 누락", JOptionPane.WARNING_MESSAGE);
+            }
+        });
+
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.add(orderButton);
+
+        cartFrame.add(totalPriceLabel, BorderLayout.NORTH);
         cartFrame.add(new JScrollPane(cartPanel), BorderLayout.CENTER);
+        cartFrame.add(buttonPanel, BorderLayout.SOUTH);
 
         cartFrame.setVisible(true);
     }
 
+    // 주문 정보 데이터베이스 저장
+    private void saveOrderToDatabase(String address, List<BasketItem> basketItems) {
+        String orderInsertQuery = "INSERT INTO orders (order_id, address, total_price) VALUES (order_seq.NEXTVAL, ?, ?)";
+        String orderDetailInsertQuery = "INSERT INTO order_details (order_id, menu_name, quantity, price) VALUES (order_seq.CURRVAL, ?, ?, ?)";
+
+        try (Connection connection = DatabaseConnection.getConnection()) {
+            try (PreparedStatement orderStatement = connection.prepareStatement(orderInsertQuery)) {
+                int totalPrice = Basket.getInstance().calculateTotalPrice();
+                orderStatement.setString(1, address);
+                orderStatement.setInt(2, totalPrice);
+                orderStatement.executeUpdate();
+            }
+
+            try (PreparedStatement orderDetailStatement = connection.prepareStatement(orderDetailInsertQuery)) {
+                for (BasketItem basketItem : basketItems) {
+                    orderDetailStatement.setString(1, basketItem.getMenuItem().getName());
+                    orderDetailStatement.setInt(2, basketItem.getQuantity());
+                    orderDetailStatement.setInt(3, basketItem.getMenuItem().getPrice());
+                    orderDetailStatement.addBatch();
+                }
+                orderDetailStatement.executeBatch();
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(null, "주문 저장 중 오류가 발생했습니다.", "주문 실패", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    // 데이터베이스에서 메뉴 항목 가져오기
     private List<MenuItem> getMenuItemsFromDatabase() {
         List<MenuItem> items = new ArrayList<>();
-        String query = "SELECT name, description, price FROM menu_items";
+        String query = "SELECT 이름 AS name, 가격 AS price FROM 제품"; // 적절히 매핑된 칼럼명 사용
 
         try (Connection connection = DatabaseConnection.getConnection();
              PreparedStatement statement = connection.prepareStatement(query);
@@ -259,19 +275,51 @@ public class CustomerPage {
 
             while (resultSet.next()) {
                 String name = resultSet.getString("name");
-                String description = resultSet.getString("description");
+                String description = ""; // 설명은 공백 또는 기본값으로 설정
                 int price = resultSet.getInt("price");
-
                 items.add(new MenuItem(name, description, price));
             }
+
         } catch (SQLException e) {
             e.printStackTrace();
-            JOptionPane.showMessageDialog(null, "메뉴 데이터를 불러오는데 실패했습니다.");
         }
-
         return items;
     }
 
+
+    // MenuItemPanel 클래스
+    class MenuItemPanel extends JPanel {
+        public MenuItemPanel(MenuItem item) {
+            setLayout(new BorderLayout());
+            setBorder(BorderFactory.createLineBorder(Color.GRAY, 1));
+            setBackground(Color.WHITE);
+
+            JLabel nameLabel = new JLabel(item.getName());
+            nameLabel.setFont(new Font("맑은 고딕", Font.BOLD, 16));
+
+            JLabel priceLabel = new JLabel(item.getPrice() + "원");
+            priceLabel.setHorizontalAlignment(SwingConstants.RIGHT);
+
+            JTextArea descriptionArea = new JTextArea(item.getDescription());
+            descriptionArea.setWrapStyleWord(true);
+            descriptionArea.setLineWrap(true);
+            descriptionArea.setEditable(false);
+            descriptionArea.setBackground(Color.WHITE);
+
+            JButton addButton = new JButton("추가");
+            addButton.addActionListener(e -> Basket.getInstance().addItem(item));
+
+            JPanel topPanel = new JPanel(new BorderLayout());
+            topPanel.add(nameLabel, BorderLayout.WEST);
+            topPanel.add(priceLabel, BorderLayout.EAST);
+
+            add(topPanel, BorderLayout.NORTH);
+            add(descriptionArea, BorderLayout.CENTER);
+            add(addButton, BorderLayout.SOUTH);
+        }
+    }
+
+    // 메인 메서드
     public static void main(String[] args) {
         SwingUtilities.invokeLater(CustomerPage::new);
     }
