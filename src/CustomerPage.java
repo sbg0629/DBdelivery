@@ -39,11 +39,9 @@ public class CustomerPage {
         }
 
         public int calculateTotalPrice() {
-            int total = 0;
-            for (BasketItem basketItem : items) {
-                total += basketItem.getMenuItem().getPrice() * basketItem.getQuantity();
-            }
-            return total;
+            return items.stream()
+                    .mapToInt(basketItem -> basketItem.getMenuItem().getPrice() * basketItem.getQuantity())
+                    .sum();
         }
     }
 
@@ -104,7 +102,7 @@ public class CustomerPage {
     // Database 연결 유틸리티 클래스
     static class DatabaseConnection {
         private static final String DB_URL = "jdbc:oracle:thin:@localhost:1521:xe";
-        private static final String DB_USER = "c##son";
+        private static final String DB_USER = "c##BAEMIN";
         private static final String DB_PASSWORD = "1234";
 
         public static Connection getConnection() throws SQLException {
@@ -235,33 +233,52 @@ public class CustomerPage {
         cartFrame.setVisible(true);
     }
 
-    // 주문 정보 데이터베이스 저장
     private void saveOrderToDatabase(String address, List<BasketItem> basketItems) {
-        String orderInsertQuery = "INSERT INTO orders (order_id, address, total_price) VALUES (order_seq.NEXTVAL, ?, ?)";
-        String orderDetailInsertQuery = "INSERT INTO order_details (order_id, menu_name, quantity, price) VALUES (order_seq.CURRVAL, ?, ?, ?)";
+        String orderInsertQuery = "INSERT INTO 주문 (주문고유ID, 사용자고유ID, 상점고유ID, 상태, 주문시간, 배달예상시간) VALUES (?, ?, ?, ?, ?, ?)";
+        String orderDetailInsertQuery = "INSERT INTO order_details (order_id, menu_name, quantity, price) VALUES (?, ?, ?, ?)";
+
+        String orderId = generateOrderId(); // 주문 ID 생성
+        String userId = "USER001"; // 테스트용 사용자 ID (사용자 입력 필요)
+        String storeId = "1"; // 테스트용 상점 ID (고정 상점 사용)
+        String status = "주문 완료"; // 초기 상태
+        Timestamp orderTime = new Timestamp(System.currentTimeMillis());
+        Timestamp estimatedDeliveryTime = new Timestamp(System.currentTimeMillis() + 3600 * 1000); // 1시간 후 배달 예상
 
         try (Connection connection = DatabaseConnection.getConnection()) {
+            // 주문 데이터 삽입
             try (PreparedStatement orderStatement = connection.prepareStatement(orderInsertQuery)) {
-                int totalPrice = Basket.getInstance().calculateTotalPrice();
-                orderStatement.setString(1, address);
-                orderStatement.setInt(2, totalPrice);
+                orderStatement.setString(1, orderId);
+                orderStatement.setString(2, userId);
+                orderStatement.setString(3, storeId);
+                orderStatement.setString(4, status);
+                orderStatement.setTimestamp(5, orderTime);
+                orderStatement.setTimestamp(6, estimatedDeliveryTime);
                 orderStatement.executeUpdate();
             }
 
+            // 주문 상세 데이터 삽입
             try (PreparedStatement orderDetailStatement = connection.prepareStatement(orderDetailInsertQuery)) {
                 for (BasketItem basketItem : basketItems) {
-                    orderDetailStatement.setString(1, basketItem.getMenuItem().getName());
-                    orderDetailStatement.setInt(2, basketItem.getQuantity());
-                    orderDetailStatement.setInt(3, basketItem.getMenuItem().getPrice());
+                    orderDetailStatement.setString(1, orderId); // 주문 ID 연결
+                    orderDetailStatement.setString(2, basketItem.getMenuItem().getName());
+                    orderDetailStatement.setInt(3, basketItem.getQuantity());
+                    orderDetailStatement.setInt(4, basketItem.getMenuItem().getPrice());
                     orderDetailStatement.addBatch();
                 }
                 orderDetailStatement.executeBatch();
             }
 
+            JOptionPane.showMessageDialog(null, "주문이 성공적으로 저장되었습니다!");
+
         } catch (SQLException e) {
             e.printStackTrace();
             JOptionPane.showMessageDialog(null, "주문 저장 중 오류가 발생했습니다.", "주문 실패", JOptionPane.ERROR_MESSAGE);
         }
+    }
+
+    // 주문 ID 생성 메서드
+    private String generateOrderId() {
+        return "ORDER" + System.currentTimeMillis();
     }
 
     // 데이터베이스에서 메뉴 항목 가져오기
@@ -270,13 +287,13 @@ public class CustomerPage {
         String query = "SELECT 이름 AS name, 가격 AS price FROM 제품"; // 적절히 매핑된 칼럼명 사용
 
         try (Connection connection = DatabaseConnection.getConnection();
-             PreparedStatement statement = connection.prepareStatement(query);
-             ResultSet resultSet = statement.executeQuery()) {
+             Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(query)) {
 
             while (resultSet.next()) {
                 String name = resultSet.getString("name");
-                String description = ""; // 설명은 공백 또는 기본값으로 설정
                 int price = resultSet.getInt("price");
+                String description = "맛있는 음식입니다!"; // 디폴트 설명
                 items.add(new MenuItem(name, description, price));
             }
 
@@ -286,40 +303,29 @@ public class CustomerPage {
         return items;
     }
 
-
     // MenuItemPanel 클래스
-    class MenuItemPanel extends JPanel {
+    static class MenuItemPanel extends JPanel {
         public MenuItemPanel(MenuItem item) {
             setLayout(new BorderLayout());
             setBorder(BorderFactory.createLineBorder(Color.GRAY, 1));
             setBackground(Color.WHITE);
 
             JLabel nameLabel = new JLabel(item.getName());
-            nameLabel.setFont(new Font("맑은 고딕", Font.BOLD, 16));
-
             JLabel priceLabel = new JLabel(item.getPrice() + "원");
-            priceLabel.setHorizontalAlignment(SwingConstants.RIGHT);
 
-            JTextArea descriptionArea = new JTextArea(item.getDescription());
-            descriptionArea.setWrapStyleWord(true);
-            descriptionArea.setLineWrap(true);
-            descriptionArea.setEditable(false);
-            descriptionArea.setBackground(Color.WHITE);
+            JButton addToCartButton = new JButton("장바구니 담기");
+            addToCartButton.addActionListener(e -> Basket.getInstance().addItem(item));
 
-            JButton addButton = new JButton("추가");
-            addButton.addActionListener(e -> Basket.getInstance().addItem(item));
+            JPanel topPanel = new JPanel(new GridLayout(2, 1));
+            topPanel.add(nameLabel);
+            topPanel.add(priceLabel);
 
-            JPanel topPanel = new JPanel(new BorderLayout());
-            topPanel.add(nameLabel, BorderLayout.WEST);
-            topPanel.add(priceLabel, BorderLayout.EAST);
-
-            add(topPanel, BorderLayout.NORTH);
-            add(descriptionArea, BorderLayout.CENTER);
-            add(addButton, BorderLayout.SOUTH);
+            add(topPanel, BorderLayout.CENTER);
+            add(addToCartButton, BorderLayout.SOUTH);
         }
     }
 
-    // 메인 메서드
+    // 메인 함수
     public static void main(String[] args) {
         SwingUtilities.invokeLater(CustomerPage::new);
     }

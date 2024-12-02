@@ -11,12 +11,6 @@ public class MenuItemPanel extends JPanel {
         setBorder(BorderFactory.createLineBorder(Color.GRAY, 1));
         setPreferredSize(new Dimension(200, 300));
 
-        // 이미지
-        JLabel imageLabel = new JLabel(new ImageIcon(
-                new ImageIcon(menuItem.getImageUrl()).getImage().getScaledInstance(200, 150, Image.SCALE_SMOOTH)
-        ));
-        add(imageLabel, BorderLayout.NORTH);
-
         // 텍스트 정보
         JPanel textPanel = new JPanel();
         textPanel.setLayout(new BoxLayout(textPanel, BoxLayout.Y_AXIS));
