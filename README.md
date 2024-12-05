@@ -17,6 +17,6 @@
 이 프로젝트를 실행하려면 아래와 같은 환경이 필요합니다:
 
 OS: Windows/Linux/Mac
-언어: 
-프레임워크: 
-데이터베이스: 
+언어: JAVA17
+프레임워크: intellij
+데이터베이스: sqldeveloper
